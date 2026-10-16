@@ -41,20 +41,42 @@ app.post('/gerar-resposta', async (req, res) => {
       return res.status(400).json({ erro: 'A mensagem do cliente é obrigatória.' });
     }
 
+
     // Instancia o cliente da IA do Google passando um objeto de configuração com a chave de API lida de forma segura das variáveis de ambiente ('process.env.GEMINI_API_KEY').
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     // Monta o texto de comando (prompt) combinando instruções de comportamento para a IA (atuar como atendente de loja educado no WhatsApp) com a mensagem real enviada pelo cliente.
     const prompt = `Você é um atendente virtual muito educado, prestativo e simpático de uma loja atendendo pelo WhatsApp. Responda de forma clara, natural e cordial à seguinte mensagem do cliente: "${mensagemCliente}"`;
+    
+    let response;
+    let maxTries = 3;
+    let currentTry = 0;
 
-    // Chama de forma assíncrona ('await') o método 'generateContent' do SDK do Gemini, especificando o modelo 'gemini-2.5-flash' e enviando o nosso prompt em 'contents'.
-    const response = await ai.models.generateContent({
-      // Define qual modelo de IA do Google será utilizado para processar o texto (o gemini-2.5-flash é rápido e ideal para respostas de chat).
-      model: 'gemini-2.5-flash',
-      // Passa o texto do prompt que construímos para que o modelo gere uma resposta baseada nele.
-      contents: prompt,
-    });
+    while (currentTry < maxTries) {
+      try{
+        // Chama de forma assíncrona ('await') o método 'generateContent' do SDK do Gemini, especificando o modelo 'gemini-3.5-flash' e enviando o nosso prompt em 'contents'.
+        response = await ai.models.generateContent({
+        // Define qual modelo de IA do Google será utilizado para processar o texto (o gemini-3.5-flash é rápido e ideal para respostas de chat).
+        model: 'gemini-3.5-flash',
+        // Passa o texto do prompt que construímos para que o modelo gere uma resposta baseada nele.
+        contents: prompt,
+        });
 
+        // Se a chamada à API do Gemini for bem-sucedida, saímos do loop de tentativas.
+        break;
+      }
+      // Se houver algum erro na chamada à API do Gemini, entramos no bloco 'catch' para tratar o erro.
+      catch (erroGoogle){
+        currentTry++;
+        console.error(`Erro ao gerar resposta com o Gemini (tentativa ${currentTry} de ${maxTries}):`, erroGoogle);
+        if (currentTry == maxTries){
+          throw new Error(`Serviço do Google indisponível após várias tentativas`);
+      }
+      
+      await new Promise (resolve => setTimeout(resolve, 1500)); // Aguarda 1,5 segundo antes de tentar novamente
+      }
+    };
+    
     // Extrai o texto final gerado pela Inteligência Artificial a partir da propriedade 'text' do objeto de resposta retornado pelo SDK.
     const respostaGerada = response.text;
 
