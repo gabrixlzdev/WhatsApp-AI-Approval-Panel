@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Aprovação WhatsApp + IA</title>
+  <!-- Importando o CSS do Bootstrap 5 via CDN para termos um layout limpo, moderno e responsivo -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm border-0">
+          <div class="card-header bg-success text-white py-3">
+            <h4 class="mb-0 fs-5">💬 Painel WhatsApp - Resposta com IA</h4>
+          </div>
+          <div class="card-body p-4">
+
+            <!-- Campo para simular a Mensagem do Cliente -->
+            <div class="mb-3">
+              <label for="mensagemCliente" class="form-label fw-semibold">Mensagem do Cliente (Simulação):</label>
+              <input
+                type="text"
+                id="mensagemCliente"
+                class="form-control"
+                placeholder="Ex: Olá! Vocês têm tênis de corrida número 40 em estoque?"
+              >
+            </div>
+
+            <!-- Botão para acionar a geração de resposta com IA -->
+            <div class="d-grid mb-4">
+              <button id="btnGerar" type="button" class="btn btn-primary">
+                ✨ Gerar Resposta com IA
+              </button>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- Textarea para exibir e editar a resposta gerada pela IA -->
+            <div class="mb-3">
+              <label for="respostaIA" class="form-label fw-semibold">Resposta Sugerida (Editável):</label>
+              <textarea
+                id="respostaIA"
+                class="form-control"
+                rows="5"
+                placeholder="A sugestão de resposta da IA aparecerá aqui para você revisar e editar..."
+              ></textarea>
+            </div>
+
+            <!-- Botão verde para aprovar e enviar a mensagem -->
+            <div class="d-grid">
+              <button id="btnAprovar" type="button" class="btn btn-success">
+                ✅ Aprovar e Enviar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Busca no documento HTML (DOM) o elemento de input onde digitamos a mensagem do cliente pelo seu ID e guarda a referência na constante 'inputMensagem'.
+    const inputMensagem = document.getElementById('mensagemCliente');
+
+    // Busca no DOM o botão azul de gerar resposta pelo seu ID e guarda a referência na constante 'btnGerar' para podermos detectar cliques nele.
+    const btnGerar = document.getElementById('btnGerar');
+
+    // Busca no DOM a caixa de texto maior (textarea) pelo seu ID e guarda na constante 'textareaResposta', onde colocaremos o texto vindo da IA.
+    const textareaResposta = document.getElementById('respostaIA');
+
+    // Busca no DOM o botão verde de aprovar pelo seu ID e guarda a referência na constante 'btnAprovar'.
+    const btnAprovar = document.getElementById('btnAprovar');
+
+    // Adiciona um "ouvinte de eventos" (event listener) ao botão de gerar, que executa uma função assíncrona ('async') toda vez que o usuário clicar ('click') nele.
+    btnGerar.addEventListener('click', async () => {
+      // Pega o texto atual digitado dentro do input e usa '.trim()' para remover espaços em branco extras no início e no fim.
+      const mensagem = inputMensagem.value.trim();
+
+      // Verifica se o campo de mensagem está vazio (se o usuário clicou no botão sem digitar nada).
+      if (!mensagem) {
+        // Exibe um alerta nativo no navegador avisando o usuário que ele precisa digitar uma mensagem antes de continuar.
+        alert('Por favor, digite uma mensagem do cliente primeiro!');
+        // Encerra a execução da função imediatamente com 'return' para não fazer uma requisição vazia ao servidor.
+        return;
+      // Fecha o bloco condicional 'if'.
+      }
+
+      // Desabilita temporariamente o botão no DOM para evitar que o usuário clique várias vezes seguidas enquanto a IA ainda está pensando.
+      btnGerar.disabled = true;
+
+      // Altera o texto visível do botão no DOM para dar um feedback visual ao usuário de que a resposta está sendo processada.
+      btnGerar.textContent = '⏳ Gerando resposta...';
+
+      // Preenche temporariamente o textarea informando que a comunicação com o servidor está em andamento.
+      textareaResposta.value = 'Aguarde, consultando a Inteligência Artificial...';
+
+      // Inicia um bloco 'try' para lidar com a requisição de rede assíncrona (Promise) e capturar possíveis falhas de conexão.
+      try {
+        // Usa a Fetch API ('fetch') com 'await' para enviar uma requisição HTTP ao nosso backend na rota '/gerar-resposta' e aguarda a Promise da resposta HTTP resolver.
+        const response = await fetch('/gerar-resposta', {
+          // Define o método HTTP como 'POST', pois estamos enviando dados no corpo da requisição para serem processados pelo servidor.
+          method: 'POST',
+          // Define os cabeçalhos (headers) da requisição para informar ao servidor como os dados estão formatados.
+          headers: {
+            // Informa ao Express que o conteúdo enviado no corpo (body) está no formato JSON, ativando o 'express.json()' lá no backend.
+            'Content-Type': 'application/json'
+          // Fecha o objeto de cabeçalhos (headers).
+          },
+          // Converte o nosso objeto JavaScript '{ mensagem }' em uma string de texto no formato JSON para poder trafegar pela rede no corpo da requisição.
+          body: JSON.stringify({ mensagem: mensagem })
+        // Fecha a chamada da função 'fetch'.
+        });
+
+        // Aguarda ('await') a Promise do método '.json()', que lê o corpo da resposta vinda do servidor e o converte de volta em um objeto JavaScript.
+        const dados = await response.json();
+
+        // Verifica a propriedade 'response.ok' (que é verdadeira se o status HTTP for entre 200 e 299); o '!' inverte para checar se deu algum erro (ex: 400 ou 500).
+        if (!response.ok) {
+          // Lança manualmente um novo erro com a mensagem enviada pelo servidor (ou uma mensagem padrão), pulando direto para o bloco 'catch'.
+          throw new Error(dados.erro || 'Erro ao comunicar com o servidor.');
+        // Fecha o bloco 'if' de verificação de erro HTTP.
+        }
+
+        // Atualiza a propriedade 'value' do elemento textarea no DOM com o texto gerado pela IA que veio dentro de 'dados.resposta'.
+        textareaResposta.value = dados.resposta;
+      // O bloco 'catch' é executado se a Promise do fetch falhar (ex: servidor desligado) ou se lançamos um erro acima.
+      } catch (erro) {
+        // Registra o erro detalhado no console do navegador (F12) para facilitar a depuração pelo desenvolvedor.
+        console.error('Erro na requisição Fetch:', erro);
+        // Limpa o texto de carregamento do textarea no DOM já que não conseguimos obter a resposta.
+        textareaResposta.value = '';
+        // Mostra um alerta na tela informando o motivo do erro para o usuário.
+        alert('Ocorreu um erro: ' + erro.message);
+      // O bloco 'finally' sempre é executado ao final da Promise (dando tudo certo no 'try' ou dando erro no 'catch').
+      } finally {
+        // Reabilita o botão de gerar resposta no DOM para que o usuário possa fazer novas solicitações.
+        btnGerar.disabled = false;
+        // Restaura o texto original do botão no DOM.
+        btnGerar.textContent = '✨ Gerar Resposta com IA';
+      // Fecha o bloco try/catch/finally.
+      }
+    // Fecha o event listener do botão 'btnGerar'.
+    });
+
+    // Adiciona um ouvinte de eventos de clique ('click') ao botão verde de aprovar e enviar.
+    btnAprovar.addEventListener('click', () => {
+      // Lê o texto que está atualmente dentro do textarea (já com as possíveis edições feitas pelo usuário) e remove espaços extras nas pontas.
+      const respostaFinal = textareaResposta.value.trim();
+
+      // Verifica se o textarea está vazio para impedir que o usuário aprove e envie uma mensagem em branco.
+      if (!respostaFinal) {
+        // Exibe um alerta avisando o usuário que é necessário gerar ou escrever uma resposta antes de aprovar.
+        alert('Não há nenhuma resposta para enviar! Gere ou escreva uma resposta primeiro.');
+        // Interrompe a execução da função aqui mesmo.
+        return;
+      // Fecha o bloco 'if'.
+      }
+
+      // Exibe na tela a janela de alerta solicitada confirmando que a mensagem foi aprovada e enviada com sucesso.
+      alert('Mensagem enviada com sucesso!');
+
+      // Limpa o conteúdo do campo de input da mensagem do cliente no DOM para deixar o painel pronto para o próximo atendimento.
+      inputMensagem.value = '';
+
+      // Limpa o conteúdo do textarea da resposta no DOM após o envio simulado.
+      textareaResposta.value = '';
+    // Fecha o event listener do botão 'btnAprovar'.
+    });
+  </script>
+
+</body>
+</html>
