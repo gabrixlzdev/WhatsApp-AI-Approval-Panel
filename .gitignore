@@ -1,0 +1,13 @@
+# Ignorar a pasta de dependências do Node
+node_modules/
+
+# Ignorar o ficheiro com chaves de API secretas
+.env
+
+# Ignorar logs de erro
+npm-debug.log*
+yarn-error.log*
+
+# Ignorar ficheiros do sistema
+.DS_Store
+Thumbs.db
