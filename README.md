@@ -2,7 +2,7 @@
 
 Um painel web simples e didático construído em **Node.js**, **Express** e **Google Gemini AI (`@google/genai`)** para simular o recebimento de mensagens de clientes no WhatsApp, gerar sugestões de respostas automáticas com Inteligência Artificial e permitir que um atendente humano revise, edite e aprove a resposta antes do envio.
 
-> 🎯 **Propósito Didático:** Todo o código deste projeto ([`server.js`](server.js) e [`public/index.html`](public/index.html)) possui **comentários detalhados em todas as linhas**, explicando passo a passo o funcionamento do servidor Express, variáveis de ambiente, Promises (`async/await`), Fetch API e manipulação do DOM.
+> 🎯 **Propósito Didático:** Todo o código deste projeto ([`server.js`](server.js) e [`public/index.html`](public/index.html)) possui **comentários detalhados em todas as linhas**, explicando passo a passo o funcionamento do servidor Express, variáveis de ambiente, Promises (`async/await`), lógica de *retry* (novas tentativas automáticas), Fetch API e manipulação do DOM.
 
 ---
 
@@ -23,7 +23,8 @@ O sistema simula um painel de atendimento onde a IA atua como assistente do oper
 1. O operador digita uma mensagem simulando a dúvida de um cliente no WhatsApp.
 2. Ao clicar em **Gerar Resposta com IA**, o frontend faz uma requisição para o backend Node.js.
 3. O backend envia a mensagem para o modelo **`gemini-2.5-flash`**, instruindo-o a responder como um atendente de loja educado e prestativo.
-4. A resposta gerada aparece em uma caixa de texto editável (`<textarea>`), permitindo ajustes antes de clicar em **Aprovar e Enviar**.
+4. **Resiliência (Retry Automático):** Caso ocorra alguma falha momentânea na comunicação com a API do Google, o servidor realiza automaticamente até **3 tentativas** com um intervalo de espera de **1,5 segundo** (`1500ms`) entre cada uma antes de retornar erro.
+5. A resposta gerada aparece em uma caixa de texto editável (`<textarea>`), permitindo ajustes antes de clicar em **Aprovar e Enviar**.
 
 ---
 
@@ -51,7 +52,7 @@ WhatsApp-AI-Approval-Panel/
 │   └── index.html       # Interface do usuário (Bootstrap) + Script Fetch API totalmente comentado
 ├── .env.example         # Exemplo de arquivo de configuração para a chave da API
 ├── package.json         # Configurações do projeto Node.js e dependências instaladas
-├── server.js            # Servidor Express + Rota de integração com o Gemini (totalmente comentado)
+├── server.js            # Servidor Express + Rota com Retry e integração com o Gemini (totalmente comentado)
 └── README.md            # Documentação do projeto
 ```
 
@@ -93,7 +94,7 @@ Abra o navegador e acesse:
 
 ### `POST /gerar-resposta`
 
-Recebe a mensagem do cliente no corpo da requisição e devolve a sugestão de resposta gerada pelo Gemini.
+Recebe a mensagem do cliente no corpo da requisição e devolve a sugestão de resposta gerada pelo Gemini. Conta com um mecanismo interno de **Retry** (até 3 tentativas com pausa de 1,5s em caso de oscilação da API externa).
 
 * **URL:** `/gerar-resposta`
 * **Método:** `POST`
@@ -120,7 +121,7 @@ Recebe a mensagem do cliente no corpo da requisição e devolve a sugestão de r
     "erro": "A mensagem do cliente é obrigatória."
   }
   ```
-* **`500 Internal Server Error`** (quando ocorre erro na chave da API ou na comunicação com o Gemini):
+* **`500 Internal Server Error`** (quando todas as 3 tentativas de conexão com o Gemini falham ou a chave `GEMINI_API_KEY` é inválida):
   ```json
   {
     "erro": "Falha ao gerar resposta com a IA. Verifique sua GEMINI_API_KEY no arquivo .env."
@@ -140,8 +141,10 @@ sequenceDiagram
 
     Usuario->>Frontend: 1. Digita a mensagem do cliente e clica em "Gerar Resposta com IA"
     Frontend->>Backend: 2. fetch('/gerar-resposta', { method: 'POST', body: JSON })
-    Backend->>Gemini: 3. ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt })
-    Gemini-->>Backend: 4. Retorna a resposta gerada pela IA
+    loop Até 3 tentativas (espera 1.5s se falhar)
+        Backend->>Gemini: 3. ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt })
+        Gemini-->>Backend: 4. Retorna a resposta gerada (sai do loop com break)
+    end
     Backend-->>Frontend: 5. res.json({ resposta: respostaGerada })
     Frontend-->>Usuario: 6. Preenche o <textarea> com a sugestão para edição
     Usuario->>Frontend: 7. Clica em "Aprovar e Enviar"

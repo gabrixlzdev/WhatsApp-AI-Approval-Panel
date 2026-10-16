@@ -30,7 +30,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Cria uma rota do tipo POST no endereço '/gerar-resposta' usando uma função assíncrona ('async'), pois a comunicação com a API do Gemini leva tempo e precisamos esperar ('await') pela resposta dela.
 app.post('/gerar-resposta', async (req, res) => {
-  // Inicia um bloco 'try' para tentar executar o código principal e capturar qualquer erro inesperado (como falha de rede ou chave inválida) sem derrubar o servidor.
+  // Inicia um bloco 'try' principal para executar a lógica da rota e capturar qualquer erro fatal sem derrubar o servidor.
   try {
     // Extrai a propriedade 'mensagem' enviada pelo frontend dentro do corpo da requisição ('req.body') e a armazena em uma constante para fácil acesso.
     const mensagemCliente = req.body.mensagem;
@@ -39,57 +39,74 @@ app.post('/gerar-resposta', async (req, res) => {
     if (!mensagemCliente) {
       // Retorna imediatamente o código de status HTTP 400 (Bad Request / Requisição Inválida) junto com um objeto JSON explicando o erro.
       return res.status(400).json({ erro: 'A mensagem do cliente é obrigatória.' });
+    // Fecha o bloco condicional 'if'.
     }
-
 
     // Instancia o cliente da IA do Google passando um objeto de configuração com a chave de API lida de forma segura das variáveis de ambiente ('process.env.GEMINI_API_KEY').
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     // Monta o texto de comando (prompt) combinando instruções de comportamento para a IA (atuar como atendente de loja educado no WhatsApp) com a mensagem real enviada pelo cliente.
     const prompt = `Você é um atendente virtual muito educado, prestativo e simpático de uma loja atendendo pelo WhatsApp. Responda de forma clara, natural e cordial à seguinte mensagem do cliente: "${mensagemCliente}"`;
-    
+
+    // Declara a variável 'response' com 'let' fora do loop 'while' para que ela fique acessível fora do bloco de repetição e possa armazenar a resposta da IA.
     let response;
+
+    // Define o número máximo de tentativas ('maxTries') como 3, garantindo resiliência caso a API do Google sofra alguma oscilação momentânea.
     let maxTries = 3;
+
+    // Inicializa o contador de tentativas atuais ('currentTry') em 0, que será incrementado a cada falha.
     let currentTry = 0;
 
+    // Inicia um laço de repetição ('while') que continuará tentando chamar a IA enquanto o número de tentativas atuais for menor que o limite máximo.
     while (currentTry < maxTries) {
-      try{
-        // Chama de forma assíncrona ('await') o método 'generateContent' do SDK do Gemini, especificando o modelo 'gemini-3.5-flash' e enviando o nosso prompt em 'contents'.
+      // Inicia um bloco 'try' interno exclusivo para monitorar se a chamada específica desta tentativa para a API do Gemini vai funcionar ou falhar.
+      try {
+        // Chama de forma assíncrona ('await') o método 'generateContent' do SDK do Gemini, especificando o modelo 'gemini-2.5-flash' e enviando o nosso prompt em 'contents'.
         response = await ai.models.generateContent({
-        // Define qual modelo de IA do Google será utilizado para processar o texto (o gemini-3.5-flash é rápido e ideal para respostas de chat).
-        model: 'gemini-3.5-flash',
-        // Passa o texto do prompt que construímos para que o modelo gere uma resposta baseada nele.
-        contents: prompt,
+          // Define qual modelo de IA do Google será utilizado para processar o texto (o gemini-2.5-flash é rápido e ideal para respostas de chat).
+          model: 'gemini-2.5-flash',
+          // Passa o texto do prompt que construímos para que o modelo gere uma resposta baseada nele.
+          contents: prompt,
+        // Fecha o objeto de configuração passado para 'generateContent'.
         });
 
-        // Se a chamada à API do Gemini for bem-sucedida, saímos do loop de tentativas.
+        // Se a chamada à API do Gemini for bem-sucedida, o comando 'break' interrompe e sai imediatamente do loop 'while', sem precisar de novas tentativas.
         break;
-      }
-      // Se houver algum erro na chamada à API do Gemini, entramos no bloco 'catch' para tratar o erro.
-      catch (erroGoogle){
+      // Se houver algum erro na chamada à API do Gemini nesta tentativa, entramos no bloco 'catch' interno para contabilizar a falha e tentar novamente.
+      } catch (erroGoogle) {
+        // Incrementa em +1 o contador de tentativas realizadas ('currentTry').
         currentTry++;
+
+        // Registra no terminal do servidor qual tentativa falhou (ex: "tentativa 1 de 3") junto com os detalhes técnicos do erro.
         console.error(`Erro ao gerar resposta com o Gemini (tentativa ${currentTry} de ${maxTries}):`, erroGoogle);
-        if (currentTry == maxTries){
-          throw new Error(`Serviço do Google indisponível após várias tentativas`);
+
+        // Verifica se já atingimos o número máximo de tentativas permitidas sem sucesso.
+        if (currentTry === maxTries) {
+          // Lança um erro definitivo que será capturado pelo bloco 'catch' principal lá embaixo, encerrando as tentativas.
+          throw new Error('Serviço do Google indisponível após várias tentativas');
+        // Fecha o bloco 'if' que verifica o limite de tentativas.
+        }
+
+        // Cria uma Promise com 'setTimeout' e usa 'await' para pausar a execução por 1500 milissegundos (1,5 segundo) antes de fazer a próxima tentativa no loop.
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      // Fecha o bloco 'catch' interno das tentativas.
       }
-      
-      await new Promise (resolve => setTimeout(resolve, 1500)); // Aguarda 1,5 segundo antes de tentar novamente
-      }
-    };
-    
+    // Fecha o laço de repetição 'while'.
+    }
+
     // Extrai o texto final gerado pela Inteligência Artificial a partir da propriedade 'text' do objeto de resposta retornado pelo SDK.
     const respostaGerada = response.text;
 
     // Envia de volta para o frontend uma resposta HTTP de sucesso (status 200 padrão) contendo um objeto JSON com a chave 'resposta' e o texto gerado pela IA.
     res.json({ resposta: respostaGerada });
-  // O bloco 'catch' captura qualquer erro que tenha acontecido dentro do bloco 'try' acima, recebendo os detalhes na variável 'error'.
+  // O bloco 'catch' principal captura qualquer erro que tenha estourado após as tentativas no bloco 'try' acima, recebendo os detalhes na variável 'error'.
   } catch (error) {
-    // Exibe os detalhes do erro no terminal do servidor (console) para ajudar o desenvolvedor a identificar e corrigir problemas.
+    // Exibe os detalhes do erro final no terminal do servidor (console) para ajudar o desenvolvedor a identificar e corrigir problemas.
     console.error('Erro ao gerar resposta com o Gemini:', error);
 
     // Retorna para o frontend o status HTTP 500 (Internal Server Error / Erro Interno do Servidor) com uma mensagem amigável em formato JSON.
     res.status(500).json({ erro: 'Falha ao gerar resposta com a IA. Verifique sua GEMINI_API_KEY no arquivo .env.' });
-  // Fecha o bloco try/catch.
+  // Fecha o bloco try/catch principal.
   }
 // Fecha a declaração da rota POST '/gerar-resposta'.
 });
