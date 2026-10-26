@@ -1,107 +1,439 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en" class="h-full antialiased">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel de Aprovação WhatsApp + IA</title>
-  <!-- Importando o CSS do Bootstrap 5 via CDN para termos um layout limpo, moderno e responsivo -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>WhatsApp AI Desk — Human-in-the-Loop Approval Console</title>
+
+  <!-- Google Fonts: Inter & JetBrains Mono for a clean Stripe/Vercel enterprise aesthetic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS v3 via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Custom Tailwind Configuration for Enterprise Font Family & Subtle Animations -->
+  <script>
+    // Configura o tema do Tailwind CSS no navegador para usar a fonte 'Inter' e cores refinadas estilo Stripe/Vercel.
+    tailwind.config = {
+      // Define a extensão das propriedades visuais padrão do Tailwind.
+      theme: {
+        // Abre o bloco 'extend' para adicionar fontes e animações sem sobrescrever o padrão.
+        extend: {
+          // Configura as famílias de fontes 'sans' (Inter) e 'mono' (JetBrains Mono).
+          fontFamily: {
+            // Define 'Inter' como a fonte principal da interface.
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            // Define 'JetBrains Mono' para badges técnicos, contadores e logs.
+            mono: ['JetBrains Mono', 'monospace'],
+          // Fecha o objeto fontFamily.
+          },
+        // Fecha o objeto extend.
+        }
+      // Fecha o objeto theme.
+      }
+    // Fecha o objeto tailwind.config.
+    };
+  </script>
+
+  <style>
+    /* Subtle background grid pattern inspired by Vercel & Stripe dashboards */
+    .bg-grid-slate {
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    /* Smooth custom scrollbar for the textarea and chat preview */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
 </head>
-<body class="bg-light">
 
-  <div class="container py-5">
-    <div class="row justify-content-center">
-      <div class="col-md-8 col-lg-6">
-        <div class="card shadow-sm border-0">
-          <div class="card-header bg-success text-white py-3">
-            <h4 class="mb-0 fs-5">💬 Painel WhatsApp - Resposta com IA</h4>
+<body class="min-h-full bg-slate-50 text-slate-900 font-sans selection:bg-indigo-500 selection:text-white flex flex-col">
+
+  <!-- ===================================================================== -->
+  <!-- TOP BAR: Sleek Enterprise Header with Brand & Live API Status         -->
+  <!-- ===================================================================== -->
+  <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200/80">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand / Mockup Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm shadow-emerald-500/20 ring-1 ring-emerald-600/20">
+          <!-- WhatsApp / AI Sparkle Hybrid SVG Icon -->
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="font-semibold text-slate-900 tracking-tight text-base">WhatsApp AI Desk</span>
+          <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200/80">
+            HITL v2.4
+          </span>
+        </div>
+      </div>
+
+      <!-- Right Status Indicators -->
+      <div class="flex items-center gap-3">
+        <!-- Gemini Engine Pill -->
+        <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100/80 border border-slate-200/70 text-xs text-slate-600">
+          <svg class="w-3.5 h-3.5 text-indigo-600" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
+          </svg>
+          <span>Engine: <strong class="font-medium text-slate-800">Gemini Flash</strong></span>
+        </div>
+
+        <!-- WhatsApp API Connected Status Badge -->
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>WhatsApp API Connected</span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN WORKSPACE: Enterprise Human-in-the-Loop Approval Console         -->
+  <!-- ===================================================================== -->
+  <main class="flex-1 bg-grid-slate py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+
+      <!-- Page Subheader & Metrics Strip -->
+      <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">
+            <span>Human-in-the-Loop Queue</span>
+            <span>•</span>
+            <span class="font-mono text-slate-500">Ticket #WA-8492</span>
           </div>
-          <div class="card-body p-4">
+          <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+            AI Response Approval Console
+          </h1>
+          <p class="mt-1 text-sm text-slate-500">
+            Simulate incoming WhatsApp messages, generate context-aware AI drafts, and approve before dispatching.
+          </p>
+        </div>
 
-            <!-- Campo para simular a Mensagem do Cliente -->
-            <div class="mb-3">
-              <label for="mensagemCliente" class="form-label fw-semibold">Mensagem do Cliente (Simulação):</label>
+        <!-- Security / Compliance Badge -->
+        <div class="flex items-center gap-2 text-xs text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-sm">
+          <svg class="w-4 h-4 text-slate-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <span>Supervisor Verification <strong class="text-slate-800 font-medium">Required</strong></span>
+        </div>
+      </div>
+
+      <!-- Two-Column Responsive Layout (Left: Customer Context | Right: Review Editor) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- =============================================================== -->
+        <!-- LEFT COLUMN (5 cols): Customer Context & AI Trigger             -->
+        <!-- =============================================================== -->
+        <section class="lg:col-span-5 bg-white rounded-xl border border-slate-200/90 shadow-sm overflow-hidden">
+          
+          <!-- Card Header: Customer Profile -->
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-sm flex items-center justify-center border border-emerald-200">
+                JD
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-sm font-semibold text-slate-900">Customer Context</h2>
+                  <span class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 rounded border border-emerald-200">Verified</span>
+                </div>
+                <p class="text-xs text-slate-500 font-mono">+1 (555) 019-2834 • WhatsApp Business</p>
+              </div>
+            </div>
+            <span class="text-xs text-slate-400 font-mono">Live</span>
+          </div>
+
+          <!-- WhatsApp Chat Canvas -->
+          <div class="p-5 bg-[#efeae2]/60 border-b border-slate-100 relative">
+            <div class="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+              <span>Incoming Message Bubble</span>
+              <span id="timestampBubble" class="font-mono text-[10px]">Just now</span>
+            </div>
+
+            <!-- Recognizable WhatsApp Incoming Chat Bubble -->
+            <div class="relative bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-slate-200/70 max-w-[95%]">
+              <!-- Sender label inside bubble -->
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-xs font-semibold text-emerald-700">Customer Inquiry</span>
+                <span class="text-[10px] font-mono text-slate-400">WhatsApp</span>
+              </div>
+
+              <!-- Live Preview of the Customer Message -->
+              <p id="chatBubblePreview" class="text-sm text-slate-800 leading-relaxed break-words">
+                Hi! Do you have running shoes in size 10 available in stock for same-day delivery?
+              </p>
+
+              <!-- Bubble Footer Timestamp -->
+              <div class="mt-2 flex items-center justify-end gap-1 text-[10px] text-slate-400 font-mono">
+                <span>Delivered</span>
+                <svg class="w-3.5 h-3.5 text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M5 19l4-4m6-6l4-4" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulation Input & Generate Button -->
+          <div class="p-5 space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="mensagemCliente" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Simulate Customer Message
+                </label>
+                <span class="text-[11px] text-slate-400">Webhook Payload</span>
+              </div>
               <input
                 type="text"
                 id="mensagemCliente"
-                class="form-control"
-                placeholder="Ex: Olá! Vocês têm tênis de corrida número 40 em estoque?"
+                value="Hi! Do you have running shoes in size 10 available in stock for same-day delivery?"
+                placeholder="Type a customer WhatsApp message to simulate..."
+                class="w-full px-3.5 py-2.5 text-sm bg-slate-50/70 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               >
             </div>
 
-            <!-- Botão para acionar a geração de resposta com IA -->
-            <div class="d-grid mb-4">
-              <button id="btnGerar" type="button" class="btn btn-primary">
-                ✨ Gerar Resposta com IA
-              </button>
+            <!-- Quick Sample Presets for Demo / Fiverr Clients -->
+            <div>
+              <span class="block text-[11px] font-medium text-slate-400 mb-1.5">Quick Test Scenarios:</span>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" data-sample="Hi! Do you have running shoes in size 10 available in stock?" class="sample-chip text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-600 transition">
+                  👟 Stock Check
+                </button>
+                <button type="button" data-sample="Hello, I would like to track my order #4829. When will it arrive?" class="sample-chip text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-600 transition">
+                  📦 Order Tracking
+                </button>
+                <button type="button" data-sample="Can I exchange a product if the size doesn't fit me?" class="sample-chip text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-600 transition">
+                  🔄 Return Policy
+                </button>
+              </div>
             </div>
 
-            <hr class="my-4">
+            <!-- AI Generation Button: Prominent Gradient with Subtle Hover Animation -->
+            <button
+              id="btnGerar"
+              type="button"
+              class="group relative w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-indigo-600 hover:via-indigo-600 hover:to-violet-600 shadow-md shadow-indigo-950/10 hover:shadow-indigo-500/20 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <span>✨ Generate AI Response</span>
+            </button>
+          </div>
 
-            <!-- Textarea para exibir e editar a resposta gerada pela IA -->
-            <div class="mb-3">
-              <label for="respostaIA" class="form-label fw-semibold">Resposta Sugerida (Editável):</label>
-              <textarea
-                id="respostaIA"
-                class="form-control"
-                rows="5"
-                placeholder="A sugestão de resposta da IA aparecerá aqui para você revisar e editar..."
-              ></textarea>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- RIGHT COLUMN (7 cols): Review Editor & Approval Action          -->
+        <!-- =============================================================== -->
+        <section class="lg:col-span-7 bg-white rounded-xl border border-slate-200/90 shadow-md overflow-hidden flex flex-col">
+          
+          <!-- Card Header: Review Editor + Regenerate Ghost Button -->
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+              <h2 class="text-sm font-semibold text-slate-900">Suggested AI Response</h2>
+              <span id="aiStatusBadge" class="px-2 py-0.5 text-[11px] font-medium rounded-md bg-slate-100 text-slate-600 border border-slate-200/80">
+                Awaiting Generation
+              </span>
             </div>
 
-            <!-- Botão verde para aprovar e enviar a mensagem -->
-            <div class="d-grid">
-              <button id="btnAprovar" type="button" class="btn btn-success">
-                ✅ Aprovar e Enviar
+            <!-- Small 'Regenerate' Ghost Button -->
+            <button
+              id="btnRegenerate"
+              type="button"
+              title="Regenerate response with AI"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200/60 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Regenerate</span>
+            </button>
+          </div>
+
+          <!-- Editor Body -->
+          <div class="p-6 flex-1 flex flex-col justify-between space-y-5">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label for="respostaIA" class="text-xs font-medium text-slate-500">
+                  Review and customize the AI draft before sending to the customer:
+                </label>
+                <span id="charCounter" class="text-[11px] font-mono text-slate-400">0 chars</span>
+              </div>
+
+              <!-- Spacious Elevated Textarea -->
+              <div class="relative">
+                <textarea
+                  id="respostaIA"
+                  rows="8"
+                  placeholder="Click '✨ Generate AI Response' to draft a polite, context-aware reply here. You can freely edit the text before approving..."
+                  class="w-full p-4 text-sm leading-relaxed bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-y"
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Inline Toast / Status Banner (Hidden by default) -->
+            <div id="statusToast" class="hidden items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-medium border"></div>
+
+            <!-- Divider & Approval Action Bar -->
+            <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="text-xs text-slate-500 flex items-center gap-2">
+                <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Human review ensures 100% brand-safe communication.</span>
+              </div>
+
+              <!-- Large, Highly Visible Emerald Green Primary Action Button -->
+              <button
+                id="btnAprovar"
+                type="button"
+                class="w-full sm:w-auto min-w-[220px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-150 active:scale-[0.99] cursor-pointer"
+              >
+                <span>✅ Approve &amp; Send</span>
               </button>
             </div>
 
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
+        </section>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Minimal Enterprise Footer -->
+  <footer class="border-t border-slate-200/70 bg-white py-4 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+      <span>WhatsApp AI Desk • Enterprise Human-in-the-Loop Workflow</span>
+      <span class="font-mono">Powered by Node.js, Express &amp; Google Gemini SDK</span>
+    </div>
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- FRONTEND SCRIPT: Fully Commented Line-by-Line for Educational Study   -->
+  <!-- ===================================================================== -->
   <script>
-    // Busca no documento HTML (DOM) o elemento de input onde digitamos a mensagem do cliente pelo seu ID e guarda a referência na constante 'inputMensagem'.
+    // Busca no documento HTML (DOM) o elemento de input onde digitamos a mensagem do cliente pelo seu ID e guarda na constante 'inputMensagem'.
     const inputMensagem = document.getElementById('mensagemCliente');
 
-    // Busca no DOM o botão azul de gerar resposta pelo seu ID e guarda a referência na constante 'btnGerar' para podermos detectar cliques nele.
+    // Busca no DOM o parágrafo dentro do balão de WhatsApp para atualizar o preview em tempo real conforme o usuário digita.
+    const chatBubblePreview = document.getElementById('chatBubblePreview');
+
+    // Busca no DOM o botão principal de gerar resposta com IA pelo seu ID e guarda a referência na constante 'btnGerar'.
     const btnGerar = document.getElementById('btnGerar');
 
-    // Busca no DOM a caixa de texto maior (textarea) pelo seu ID e guarda na constante 'textareaResposta', onde colocaremos o texto vindo da IA.
+    // Busca no DOM o botão secundário ('Regenerate') para permitir gerar uma nova variação de resposta com um clique.
+    const btnRegenerate = document.getElementById('btnRegenerate');
+
+    // Busca no DOM a caixa de texto maior (textarea) pelo seu ID e guarda na constante 'textareaResposta', onde exibiremos a resposta da IA.
     const textareaResposta = document.getElementById('respostaIA');
 
-    // Busca no DOM o botão verde de aprovar pelo seu ID e guarda a referência na constante 'btnAprovar'.
+    // Busca no DOM o botão verde esmeralda de aprovar e enviar pelo seu ID e guarda na constante 'btnAprovar'.
     const btnAprovar = document.getElementById('btnAprovar');
 
-    // Adiciona um "ouvinte de eventos" (event listener) ao botão de gerar, que executa uma função assíncrona ('async') toda vez que o usuário clicar ('click') nele.
-    btnGerar.addEventListener('click', async () => {
+    // Busca no DOM o badge de status do editor para indicar visualmente se a IA está gerando ou se o rascunho está pronto.
+    const aiStatusBadge = document.getElementById('aiStatusBadge');
+
+    // Busca no DOM o contador de caracteres para atualizar dinamicamente o tamanho do texto gerado ou editado.
+    const charCounter = document.getElementById('charCounter');
+
+    // Busca no DOM todos os botões de exemplo rápido ('sample-chip') para facilitar testes rápidos de demonstração.
+    const sampleChips = document.querySelectorAll('.sample-chip');
+
+    // Declara uma função auxiliar para atualizar o contador de caracteres sempre que o texto do textarea mudar.
+    function atualizarContadorCaracteres() {
+      // Calcula o tamanho atual do texto no textarea e atualiza o conteúdo textual do elemento 'charCounter'.
+      charCounter.textContent = `${textareaResposta.value.length} chars`;
+    // Fecha a função 'atualizarContadorCaracteres'.
+    }
+
+    // Adiciona um ouvinte de evento 'input' no campo de mensagem do cliente para espelhar o texto digitado dentro do balão do WhatsApp em tempo real.
+    inputMensagem.addEventListener('input', () => {
+      // Atualiza o texto do balão de chat do WhatsApp com o valor digitado ou mostra um texto padrão se estiver vazio.
+      chatBubblePreview.textContent = inputMensagem.value.trim() || 'Waiting for customer message...';
+    // Fecha o event listener do 'inputMensagem'.
+    });
+
+    // Adiciona um ouvinte de evento 'input' no textarea da resposta para manter o contador de caracteres atualizado quando o humano editar o texto.
+    textareaResposta.addEventListener('input', atualizarContadorCaracteres);
+
+    // Percorre cada botão de cenário de teste rápido ('sampleChips') para adicionar o comportamento de preenchimento automático ao clicar.
+    sampleChips.forEach((chip) => {
+      // Adiciona um ouvinte de clique em cada botão de cenário de exemplo.
+      chip.addEventListener('click', () => {
+        // Lê o texto de exemplo armazenado no atributo 'data-sample' do botão clicado e coloca no input.
+        inputMensagem.value = chip.getAttribute('data-sample');
+        // Atualiza imediatamente o balão de preview do WhatsApp com a nova mensagem escolhida.
+        chatBubblePreview.textContent = inputMensagem.value;
+      // Fecha o listener do chip.
+      });
+    // Fecha o loop forEach dos chips.
+    });
+
+    // Declara a função assíncrona ('async') principal que faz a requisição Fetch para a nossa API no backend Node.js.
+    async function gerarRespostaComIA() {
       // Pega o texto atual digitado dentro do input e usa '.trim()' para remover espaços em branco extras no início e no fim.
       const mensagem = inputMensagem.value.trim();
 
       // Verifica se o campo de mensagem está vazio (se o usuário clicou no botão sem digitar nada).
       if (!mensagem) {
         // Exibe um alerta nativo no navegador avisando o usuário que ele precisa digitar uma mensagem antes de continuar.
-        alert('Por favor, digite uma mensagem do cliente primeiro!');
+        alert('Please enter a customer message first!');
+        // Coloca o foco de digitação automaticamente no campo de input da mensagem do cliente.
+        inputMensagem.focus();
         // Encerra a execução da função imediatamente com 'return' para não fazer uma requisição vazia ao servidor.
         return;
       // Fecha o bloco condicional 'if'.
       }
 
-      // Desabilita temporariamente o botão no DOM para evitar que o usuário clique várias vezes seguidas enquanto a IA ainda está pensando.
+      // Desabilita temporariamente o botão principal no DOM para evitar cliques duplicados enquanto a IA processa.
       btnGerar.disabled = true;
 
-      // Altera o texto visível do botão no DOM para dar um feedback visual ao usuário de que a resposta está sendo processada.
-      btnGerar.textContent = '⏳ Gerando resposta...';
+      // Desabilita também o botão 'Regenerate' durante o carregamento.
+      btnRegenerate.disabled = true;
+
+      // Altera o texto visível do botão principal no DOM para dar um feedback visual ao usuário de que a resposta está sendo gerada.
+      btnGerar.textContent = '⏳ Generating AI Draft...';
+
+      // Atualiza o badge de status no topo do card de revisão para indicar que a requisição está em andamento.
+      aiStatusBadge.textContent = 'Generating with Gemini...';
+
+      // Aplica classes de cor âmbar/azul no badge de status para destacar o estado de processamento.
+      aiStatusBadge.className = 'px-2 py-0.5 text-[11px] font-medium rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 animate-pulse';
 
       // Preenche temporariamente o textarea informando que a comunicação com o servidor está em andamento.
-      textareaResposta.value = 'Aguarde, consultando a Inteligência Artificial...';
+      textareaResposta.value = 'Consulting Google Gemini AI, please wait...';
+
+      // Atualiza o contador de caracteres no DOM.
+      atualizarContadorCaracteres();
 
       // Inicia um bloco 'try' para lidar com a requisição de rede assíncrona (Promise) e capturar possíveis falhas de conexão.
       try {
-        // Usa a Fetch API ('fetch') com 'await' para enviar uma requisição HTTP ao nosso backend na rota '/gerar-resposta' e aguarda a Promise da resposta HTTP resolver.
-        const response = await fetch('/gerar-resposta', {
+        // Define a URL da API dinamicamente: se estiver rodando no Live Server (porta 5500), aponta para http://localhost:3000; caso contrário, usa a rota relativa.
+        const apiUrl = window.location.port === '5500' ? 'http://localhost:3000/gerar-resposta' : '/gerar-resposta';
+
+        // Usa a Fetch API ('fetch') com 'await' para enviar uma requisição HTTP POST ao nosso backend e aguarda a Promise da resposta HTTP resolver.
+        const response = await fetch(apiUrl, {
           // Define o método HTTP como 'POST', pois estamos enviando dados no corpo da requisição para serem processados pelo servidor.
           method: 'POST',
           // Define os cabeçalhos (headers) da requisição para informar ao servidor como os dados estão formatados.
@@ -110,7 +442,7 @@
             'Content-Type': 'application/json'
           // Fecha o objeto de cabeçalhos (headers).
           },
-          // Converte o nosso objeto JavaScript '{ mensagem }' em uma string de texto no formato JSON para poder trafegar pela rede no corpo da requisição.
+          // Converte o nosso objeto JavaScript '{ mensagem }' em uma string de texto no formato JSON para trafegar pela rede no corpo da requisição.
           body: JSON.stringify({ mensagem: mensagem })
         // Fecha a chamada da função 'fetch'.
         });
@@ -118,35 +450,65 @@
         // Aguarda ('await') a Promise do método '.json()', que lê o corpo da resposta vinda do servidor e o converte de volta em um objeto JavaScript.
         const dados = await response.json();
 
-        // Verifica a propriedade 'response.ok' (que é verdadeira se o status HTTP for entre 200 e 299); o '!' inverte para checar se deu algum erro (ex: 400 ou 500).
+        // Verifica a propriedade 'response.ok' (verdadeira se o status HTTP for entre 200 e 299); o '!' inverte para checar se deu algum erro (ex: 400 ou 500).
         if (!response.ok) {
           // Lança manualmente um novo erro com a mensagem enviada pelo servidor (ou uma mensagem padrão), pulando direto para o bloco 'catch'.
-          throw new Error(dados.erro || 'Erro ao comunicar com o servidor.');
+          throw new Error(dados.erro || 'Failed to communicate with the AI server.');
         // Fecha o bloco 'if' de verificação de erro HTTP.
         }
 
         // Atualiza a propriedade 'value' do elemento textarea no DOM com o texto gerado pela IA que veio dentro de 'dados.resposta'.
         textareaResposta.value = dados.resposta;
+
+        // Atualiza o badge de status indicando que o rascunho da IA está pronto para revisão humana.
+        aiStatusBadge.textContent = 'Ready for Human Review';
+
+        // Atualiza o estilo visual do badge para verde esmeralda indicando sucesso.
+        aiStatusBadge.className = 'px-2 py-0.5 text-[11px] font-medium rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200';
+
+        // Atualiza o contador de caracteres com o tamanho da resposta gerada pela IA.
+        atualizarContadorCaracteres();
       // O bloco 'catch' é executado se a Promise do fetch falhar (ex: servidor desligado) ou se lançamos um erro acima.
       } catch (erro) {
         // Registra o erro detalhado no console do navegador (F12) para facilitar a depuração pelo desenvolvedor.
-        console.error('Erro na requisição Fetch:', erro);
+        console.error('Fetch request error:', erro);
+
         // Limpa o texto de carregamento do textarea no DOM já que não conseguimos obter a resposta.
         textareaResposta.value = '';
+
+        // Atualiza o badge de status no topo do editor para indicar que houve erro.
+        aiStatusBadge.textContent = 'Generation Failed';
+
+        // Aplica estilo visual vermelho no badge para sinalizar a falha.
+        aiStatusBadge.className = 'px-2 py-0.5 text-[11px] font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200';
+
+        // Atualiza o contador de caracteres para zero.
+        atualizarContadorCaracteres();
+
         // Mostra um alerta na tela informando o motivo do erro para o usuário.
-        alert('Ocorreu um erro: ' + erro.message);
+        alert('Error: ' + erro.message);
       // O bloco 'finally' sempre é executado ao final da Promise (dando tudo certo no 'try' ou dando erro no 'catch').
       } finally {
-        // Reabilita o botão de gerar resposta no DOM para que o usuário possa fazer novas solicitações.
+        // Reabilita o botão principal de gerar resposta no DOM para que o usuário possa fazer novas solicitações.
         btnGerar.disabled = false;
-        // Restaura o texto original do botão no DOM.
-        btnGerar.textContent = '✨ Gerar Resposta com IA';
+
+        // Reabilita o botão secundário 'Regenerate'.
+        btnRegenerate.disabled = false;
+
+        // Restaura o texto original em inglês do botão principal no DOM.
+        btnGerar.textContent = '✨ Generate AI Response';
       // Fecha o bloco try/catch/finally.
       }
-    // Fecha o event listener do botão 'btnGerar'.
-    });
+    // Fecha a declaração da função 'gerarRespostaComIA'.
+    }
 
-    // Adiciona um ouvinte de eventos de clique ('click') ao botão verde de aprovar e enviar.
+    // Conecta o clique do botão principal ('✨ Generate AI Response') à função 'gerarRespostaComIA'.
+    btnGerar.addEventListener('click', gerarRespostaComIA);
+
+    // Conecta o clique do botão fantasma ('Regenerate') à mesma função 'gerarRespostaComIA' para gerar uma nova sugestão.
+    btnRegenerate.addEventListener('click', gerarRespostaComIA);
+
+    // Adiciona um ouvinte de eventos de clique ('click') ao botão verde esmeralda de aprovar e enviar ('✅ Approve & Send').
     btnAprovar.addEventListener('click', () => {
       // Lê o texto que está atualmente dentro do textarea (já com as possíveis edições feitas pelo usuário) e remove espaços extras nas pontas.
       const respostaFinal = textareaResposta.value.trim();
@@ -154,20 +516,25 @@
       // Verifica se o textarea está vazio para impedir que o usuário aprove e envie uma mensagem em branco.
       if (!respostaFinal) {
         // Exibe um alerta avisando o usuário que é necessário gerar ou escrever uma resposta antes de aprovar.
-        alert('Não há nenhuma resposta para enviar! Gere ou escreva uma resposta primeiro.');
+        alert('There is no response to send! Please generate or type a reply first.');
+        // Coloca o foco no textarea.
+        textareaResposta.focus();
         // Interrompe a execução da função aqui mesmo.
         return;
       // Fecha o bloco 'if'.
       }
 
-      // Exibe na tela a janela de alerta solicitada confirmando que a mensagem foi aprovada e enviada com sucesso.
-      alert('Mensagem enviada com sucesso!');
-
-      // Limpa o conteúdo do campo de input da mensagem do cliente no DOM para deixar o painel pronto para o próximo atendimento.
-      inputMensagem.value = '';
+      // Exibe na tela a janela de alerta confirmando que a mensagem foi aprovada e enviada com sucesso (mantendo compatibilidade e clareza).
+      alert('Mensagem enviada com sucesso! (Message approved & dispatched via WhatsApp API)');
 
       // Limpa o conteúdo do textarea da resposta no DOM após o envio simulado.
       textareaResposta.value = '';
+
+      // Restaura o badge de status para o estado inicial aguardando nova geração.
+      aiStatusBadge.textContent = 'Dispatched ✓';
+
+      // Atualiza o contador de caracteres no DOM para refletir o campo limpo.
+      atualizarContadorCaracteres();
     // Fecha o event listener do botão 'btnAprovar'.
     });
   </script>

@@ -48,46 +48,55 @@ app.post('/gerar-resposta', async (req, res) => {
     // Monta o texto de comando (prompt) combinando instruções de comportamento para a IA (atuar como atendente de loja educado no WhatsApp) com a mensagem real enviada pelo cliente.
     const prompt = `Você é um atendente virtual muito educado, prestativo e simpático de uma loja atendendo pelo WhatsApp. Responda de forma clara, natural e cordial à seguinte mensagem do cliente: "${mensagemCliente}"`;
 
+    // Declara uma lista (array) de modelos em ordem de prioridade: tenta primeiro o 'gemini-3.5-flash', e se ele estiver sobrecarregado (erro 503), usa o 'gemini-3.5-flash-lite' e o 'gemini-3-flash-preview' como reservas (fallback).
+    const modelosFallback = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
+
     // Declara a variável 'response' com 'let' fora do loop 'while' para que ela fique acessível fora do bloco de repetição e possa armazenar a resposta da IA.
     let response;
 
-    // Define o número máximo de tentativas ('maxTries') como 3, garantindo resiliência caso a API do Google sofra alguma oscilação momentânea.
-    let maxTries = 3;
+    // Define o número máximo de tentativas ('maxTries') igual à quantidade de modelos na nossa lista (3 tentativas).
+    let maxTries = modelosFallback.length;
 
-    // Inicializa o contador de tentativas atuais ('currentTry') em 0, que será incrementado a cada falha.
+    // Inicializa o contador de tentativas atuais ('currentTry') em 0, que também servirá como índice para escolher o modelo da vez na lista 'modelosFallback'.
     let currentTry = 0;
 
     // Inicia um laço de repetição ('while') que continuará tentando chamar a IA enquanto o número de tentativas atuais for menor que o limite máximo.
     while (currentTry < maxTries) {
-      // Inicia um bloco 'try' interno exclusivo para monitorar se a chamada específica desta tentativa para a API do Gemini vai funcionar ou falhar.
+      // Seleciona o modelo da tentativa atual usando 'currentTry' como posição do array (0 = gemini-3.5-flash, 1 = gemini-3.5-flash-lite, 2 = gemini-3-flash-preview).
+      const modeloAtual = modelosFallback[currentTry];
+
+      // Inicia um bloco 'try' interno exclusivo para monitorar se a chamada com o modelo desta tentativa vai funcionar ou falhar.
       try {
-        // Chama de forma assíncrona ('await') o método 'generateContent' do SDK do Gemini, especificando o modelo 'gemini-2.5-flash' e enviando o nosso prompt em 'contents'.
+        // Exibe no terminal qual modelo está sendo consultado nesta tentativa para facilitar o acompanhamento em tempo real.
+        console.log(`Consultando IA (tentativa ${currentTry + 1} de ${maxTries}) usando o modelo: ${modeloAtual}...`);
+
+        // Chama de forma assíncrona ('await') o método 'generateContent' do SDK do Gemini, passando o 'modeloAtual' e o nosso prompt em 'contents'.
         response = await ai.models.generateContent({
-          // Define qual modelo de IA do Google será utilizado para processar o texto (o gemini-2.5-flash é rápido e ideal para respostas de chat).
-          model: 'gemini-2.5-flash',
+          // Define dinamicamente o modelo de IA do Google da tentativa atual.
+          model: modeloAtual,
           // Passa o texto do prompt que construímos para que o modelo gere uma resposta baseada nele.
           contents: prompt,
         // Fecha o objeto de configuração passado para 'generateContent'.
         });
 
-        // Se a chamada à API do Gemini for bem-sucedida, o comando 'break' interrompe e sai imediatamente do loop 'while', sem precisar de novas tentativas.
+        // Se a chamada à API do Gemini for bem-sucedida, o comando 'break' interrompe e sai imediatamente do loop 'while', pois já temos a resposta!
         break;
-      // Se houver algum erro na chamada à API do Gemini nesta tentativa, entramos no bloco 'catch' interno para contabilizar a falha e tentar novamente.
+      // Se houver algum erro na chamada à API do Gemini nesta tentativa (como erro 503 de sobrecarga), entramos no bloco 'catch' interno para passar para o próximo modelo reserva.
       } catch (erroGoogle) {
-        // Incrementa em +1 o contador de tentativas realizadas ('currentTry').
+        // Incrementa em +1 o contador de tentativas realizadas ('currentTry'), avançando para o próximo modelo da lista na próxima volta do loop.
         currentTry++;
 
-        // Registra no terminal do servidor qual tentativa falhou (ex: "tentativa 1 de 3") junto com os detalhes técnicos do erro.
-        console.error(`Erro ao gerar resposta com o Gemini (tentativa ${currentTry} de ${maxTries}):`, erroGoogle);
+        // Registra no terminal um aviso mostrando que o modelo atual falhou e qual foi o status do erro.
+        console.error(`Falha no modelo ${modeloAtual} (tentativa ${currentTry} de ${maxTries}):`, erroGoogle.message || erroGoogle);
 
-        // Verifica se já atingimos o número máximo de tentativas permitidas sem sucesso.
+        // Verifica se já esgotamos todas as tentativas (todos os modelos da lista falharam).
         if (currentTry === maxTries) {
           // Lança um erro definitivo que será capturado pelo bloco 'catch' principal lá embaixo, encerrando as tentativas.
-          throw new Error('Serviço do Google indisponível após várias tentativas');
+          throw new Error('Serviço do Google indisponível após tentar todos os modelos de fallback');
         // Fecha o bloco 'if' que verifica o limite de tentativas.
         }
 
-        // Cria uma Promise com 'setTimeout' e usa 'await' para pausar a execução por 1500 milissegundos (1,5 segundo) antes de fazer a próxima tentativa no loop.
+        // Cria uma Promise com 'setTimeout' e usa 'await' para aguardar 1500 milissegundos (1,5 segundo) antes de tentar o próximo modelo reserva no loop.
         await new Promise(resolve => setTimeout(resolve, 1500));
       // Fecha o bloco 'catch' interno das tentativas.
       }
@@ -99,10 +108,10 @@ app.post('/gerar-resposta', async (req, res) => {
 
     // Envia de volta para o frontend uma resposta HTTP de sucesso (status 200 padrão) contendo um objeto JSON com a chave 'resposta' e o texto gerado pela IA.
     res.json({ resposta: respostaGerada });
-  // O bloco 'catch' principal captura qualquer erro que tenha estourado após as tentativas no bloco 'try' acima, recebendo os detalhes na variável 'error'.
+  // O bloco 'catch' principal captura qualquer erro que tenha estourado após esgotar todas as tentativas no bloco 'try' acima.
   } catch (error) {
     // Exibe os detalhes do erro final no terminal do servidor (console) para ajudar o desenvolvedor a identificar e corrigir problemas.
-    console.error('Erro ao gerar resposta com o Gemini:', error);
+    console.error('Erro final ao gerar resposta com o Gemini:', error);
 
     // Retorna para o frontend o status HTTP 500 (Internal Server Error / Erro Interno do Servidor) com uma mensagem amigável em formato JSON.
     res.status(500).json({ erro: 'Falha ao gerar resposta com a IA. Verifique sua GEMINI_API_KEY no arquivo .env.' });

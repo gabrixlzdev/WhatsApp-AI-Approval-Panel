@@ -2,7 +2,7 @@
 
 Um painel web simples e didático construído em **Node.js**, **Express** e **Google Gemini AI (`@google/genai`)** para simular o recebimento de mensagens de clientes no WhatsApp, gerar sugestões de respostas automáticas com Inteligência Artificial e permitir que um atendente humano revise, edite e aprove a resposta antes do envio.
 
-> 🎯 **Propósito Didático:** Todo o código deste projeto ([`server.js`](server.js) e [`public/index.html`](public/index.html)) possui **comentários detalhados em todas as linhas**, explicando passo a passo o funcionamento do servidor Express, variáveis de ambiente, Promises (`async/await`), lógica de *retry* (novas tentativas automáticas), Fetch API e manipulação do DOM.
+> 🎯 **Propósito Didático:** Todo o código deste projeto ([`server.js`](server.js) e [`public/index.html`](public/index.html)) possui **comentários detalhados em todas as linhas**, explicando passo a passo o funcionamento do servidor Express, variáveis de ambiente, Promises (`async/await`), lógica de *retry* com *fallback* de modelos, Fetch API e manipulação do DOM.
 
 ---
 
@@ -22,8 +22,8 @@ Um painel web simples e didático construído em **Node.js**, **Express** e **Go
 O sistema simula um painel de atendimento onde a IA atua como assistente do operador humano (**Human-in-the-Loop**):
 1. O operador digita uma mensagem simulando a dúvida de um cliente no WhatsApp.
 2. Ao clicar em **Gerar Resposta com IA**, o frontend faz uma requisição para o backend Node.js.
-3. O backend envia a mensagem para o modelo **`gemini-2.5-flash`**, instruindo-o a responder como um atendente de loja educado e prestativo.
-4. **Resiliência (Retry Automático):** Caso ocorra alguma falha momentânea na comunicação com a API do Google, o servidor realiza automaticamente até **3 tentativas** com um intervalo de espera de **1,5 segundo** (`1500ms`) entre cada uma antes de retornar erro.
+3. O backend envia a mensagem para a API do Google Gemini instruindo a IA a responder como um atendente de loja educado e prestativo.
+4. **Resiliência (Retry Automático com Fallback de Modelos):** Caso o modelo principal (`gemini-3.5-flash`) esteja com alta demanda nos servidores do Google (erro `503`), o servidor aguarda **1,5 segundo** (`1500ms`) e alterna automaticamente nas próximas tentativas para modelos reserva rápidos (`gemini-3.5-flash-lite` e `gemini-3-flash-preview`).
 5. A resposta gerada aparece em uma caixa de texto editável (`<textarea>`), permitindo ajustes antes de clicar em **Aprovar e Enviar**.
 
 ---
@@ -33,7 +33,7 @@ O sistema simula um painel de atendimento onde a IA atua como assistente do oper
 * **Backend:**
   * **Node.js** — Ambiente de execução JavaScript no servidor.
   * **Express** — Framework web simples e rápido para servir o frontend e criar a rota da API.
-  * **@google/genai** — SDK oficial do Google Gemini (usando o modelo `gemini-2.5-flash`).
+  * **@google/genai** — SDK oficial do Google Gemini (usando `gemini-3.5-flash` com fallback para `gemini-3.5-flash-lite` e `gemini-3-flash-preview`).
   * **dotenv** — Carregamento de variáveis de ambiente a partir do arquivo `.env`.
   * **cors** — Liberação de requisições entre origens no navegador.
 * **Frontend:**
@@ -52,7 +52,7 @@ WhatsApp-AI-Approval-Panel/
 │   └── index.html       # Interface do usuário (Bootstrap) + Script Fetch API totalmente comentado
 ├── .env.example         # Exemplo de arquivo de configuração para a chave da API
 ├── package.json         # Configurações do projeto Node.js e dependências instaladas
-├── server.js            # Servidor Express + Rota com Retry e integração com o Gemini (totalmente comentado)
+├── server.js            # Servidor Express + Rota com Retry/Fallback e integração Gemini (totalmente comentado)
 └── README.md            # Documentação do projeto
 ```
 
@@ -94,7 +94,7 @@ Abra o navegador e acesse:
 
 ### `POST /gerar-resposta`
 
-Recebe a mensagem do cliente no corpo da requisição e devolve a sugestão de resposta gerada pelo Gemini. Conta com um mecanismo interno de **Retry** (até 3 tentativas com pausa de 1,5s em caso de oscilação da API externa).
+Recebe a mensagem do cliente no corpo da requisição e devolve a sugestão de resposta gerada pelo Gemini. Conta com um mecanismo interno de **Retry + Fallback** (até 3 tentativas alternando entre `gemini-3.5-flash`, `gemini-3.5-flash-lite` e `gemini-3-flash-preview` com pausa de 1,5s em caso de sobrecarga na API externa).
 
 * **URL:** `/gerar-resposta`
 * **Método:** `POST`
@@ -141,8 +141,8 @@ sequenceDiagram
 
     Usuario->>Frontend: 1. Digita a mensagem do cliente e clica em "Gerar Resposta com IA"
     Frontend->>Backend: 2. fetch('/gerar-resposta', { method: 'POST', body: JSON })
-    loop Até 3 tentativas (espera 1.5s se falhar)
-        Backend->>Gemini: 3. ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt })
+    loop Até 3 tentativas (alterna entre 3.5-flash, 3.5-flash-lite e 3-flash-preview)
+        Backend->>Gemini: 3. ai.models.generateContent({ model: modeloAtual, contents: prompt })
         Gemini-->>Backend: 4. Retorna a resposta gerada (sai do loop com break)
     end
     Backend-->>Frontend: 5. res.json({ resposta: respostaGerada })
